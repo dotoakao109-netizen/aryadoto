@@ -1,3 +1,4 @@
 flask==3.1.1
 pyshp==2.3.1
 gunicorn==23.0.0
+werkzeug==3.1.3
