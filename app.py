@@ -13,7 +13,7 @@ import threading
 from pathlib import Path
 
 from flask import Flask, request, jsonify, send_file, render_template
-from lxml import etree
+import xml.etree.ElementTree as ET
 import shapefile
 
 app = Flask(__name__)
@@ -53,20 +53,31 @@ def parse_coordinates(coord_text):
     return coords
 
 
+def build_parent_map(root):
+    """Build child->parent map for ElementTree (no getparent)."""
+    parent_map = {}
+    for parent in root.iter():
+        for child in parent:
+            parent_map[child] = parent
+    return parent_map
+
+
 def extract_placemarks(root):
     placemarks = {'Point': [], 'LineString': [], 'Polygon': []}
+    parent_map = build_parent_map(root)
+    ns = KML_NS['kml']
 
-    for pm in root.iter('{http://www.opengis.net/kml/2.2}Placemark'):
-        name_el = pm.find('kml:name', KML_NS)
+    for pm in root.iter(f'{{{ns}}}Placemark'):
+        name_el = pm.find(f'{{{ns}}}name')
         name = name_el.text if name_el is not None and name_el.text else ''
 
-        desc_el = pm.find('kml:description', KML_NS)
+        desc_el = pm.find(f'{{{ns}}}description')
         description = desc_el.text if desc_el is not None and desc_el.text else ''
 
         folder = ''
-        parent = pm.getparent()
+        parent = parent_map.get(pm)
         if parent is not None:
-            folder_name_el = parent.find('kml:name', KML_NS)
+            folder_name_el = parent.find(f'{{{ns}}}name')
             if folder_name_el is not None and folder_name_el.text:
                 folder = folder_name_el.text
 
@@ -76,19 +87,19 @@ def extract_placemarks(root):
             'folder': folder[:254],
         }
 
-        for data in pm.iter('{http://www.opengis.net/kml/2.2}Data'):
+        for data in pm.iter(f'{{{ns}}}Data'):
             key = data.get('name', '')[:10]
-            val_el = data.find('kml:value', KML_NS)
+            val_el = data.find(f'{{{ns}}}value')
             val = val_el.text if val_el is not None and val_el.text else ''
             attrs[key] = val[:254]
 
-        for data in pm.iter('{http://www.opengis.net/kml/2.2}SimpleData'):
+        for data in pm.iter(f'{{{ns}}}SimpleData'):
             key = (data.get('name') or '')[:10]
             val = data.text if data.text else ''
             attrs[key] = val[:254]
 
         # Point
-        point = pm.find('.//kml:Point/kml:coordinates', KML_NS)
+        point = pm.find(f'.//{{{ns}}}Point/{{{ns}}}coordinates')
         if point is not None and point.text:
             coords = parse_coordinates(point.text)
             if coords:
@@ -96,7 +107,7 @@ def extract_placemarks(root):
             continue
 
         # LineString
-        line = pm.find('.//kml:LineString/kml:coordinates', KML_NS)
+        line = pm.find(f'.//{{{ns}}}LineString/{{{ns}}}coordinates')
         if line is not None and line.text:
             coords = parse_coordinates(line.text)
             if len(coords) >= 2:
@@ -104,7 +115,7 @@ def extract_placemarks(root):
             continue
 
         # Polygon
-        poly = pm.find('.//kml:Polygon/kml:outerBoundaryIs/kml:LinearRing/kml:coordinates', KML_NS)
+        poly = pm.find(f'.//{{{ns}}}Polygon/{{{ns}}}outerBoundaryIs/{{{ns}}}LinearRing/{{{ns}}}coordinates')
         if poly is not None and poly.text:
             coords = parse_coordinates(poly.text)
             if len(coords) >= 3:
@@ -112,21 +123,21 @@ def extract_placemarks(root):
             continue
 
         # MultiGeometry
-        multi = pm.find('.//kml:MultiGeometry', KML_NS)
+        multi = pm.find(f'.//{{{ns}}}MultiGeometry')
         if multi is not None:
-            for sub_point in multi.findall('kml:Point/kml:coordinates', KML_NS):
+            for sub_point in multi.findall(f'{{{ns}}}Point/{{{ns}}}coordinates'):
                 if sub_point.text:
                     coords = parse_coordinates(sub_point.text)
                     if coords:
                         placemarks['Point'].append({'coords': coords[0], 'attrs': attrs})
 
-            for sub_line in multi.findall('kml:LineString/kml:coordinates', KML_NS):
+            for sub_line in multi.findall(f'{{{ns}}}LineString/{{{ns}}}coordinates'):
                 if sub_line.text:
                     coords = parse_coordinates(sub_line.text)
                     if len(coords) >= 2:
                         placemarks['LineString'].append({'coords': coords, 'attrs': attrs})
 
-            for sub_poly in multi.findall('kml:Polygon/kml:outerBoundaryIs/kml:LinearRing/kml:coordinates', KML_NS):
+            for sub_poly in multi.findall(f'{{{ns}}}Polygon/{{{ns}}}outerBoundaryIs/{{{ns}}}LinearRing/{{{ns}}}coordinates'):
                 if sub_poly.text:
                     coords = parse_coordinates(sub_poly.text)
                     if len(coords) >= 3:
@@ -200,7 +211,7 @@ def convert_file(input_path, output_dir):
     else:
         raise ValueError(f"Unsupported file type: {input_path.suffix}")
 
-    root = etree.fromstring(kml_content)
+    root = ET.fromstring(kml_content)
     placemarks = extract_placemarks(root)
 
     base_name = input_path.stem
