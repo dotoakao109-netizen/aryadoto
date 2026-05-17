@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AryaDoto - Convert KML/KMZ to Shapefile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 520px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 16px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed #3a3a5a;
+            border-radius: 10px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: #53a8b6;
+            background: rgba(83, 168, 182, 0.05);
+        }
+
+        .upload-zone.has-file {
+            border-color: #4caf50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .upload-zone h3 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #ccc;
+        }
+
+        .upload-zone p {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .file-name {
+            font-size: 14px;
+            color: #53a8b6;
+            font-weight: 500;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .btn-primary {
+            background: #53a8b6;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #4a97a4;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            background: #2a4a50;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress */
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a2a4a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #53a8b6;
+            border-radius: 2px;
+            animation: progress-indeterminate 1.5s infinite ease-in-out;
+            width: 40%;
+        }
+
+        @keyframes progress-indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .progress-text {
+            font-size: 13px;
+            color: #888;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Results */
+        .results {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: #0f0f1a;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .result-type {
+            color: #53a8b6;
+            font-weight: 500;
+        }
+
+        .result-count {
+            color: #888;
+        }
+
+        .btn-download {
+            background: #4caf50;
+            margin-top: 16px;
+        }
+
+        .btn-download:hover {
+            background: #43a047;
+            transform: translateY(-1px);
+        }
+
+        /* Error */
+        .error-msg {
+            display: none;
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 6px;
+            color: #f44336;
+            font-size: 13px;
+        }
+
+        .error-msg.active {
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .footer a {
+            color: #53a8b6;
+            text-decoration: none;
+        }
+
+        /* Supported formats */
+        .formats {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+
+        .format-badge {
+            padding: 4px 10px;
+            background: #2a2a4a;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #aaa;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AryaDoto</h1>
+            <p>Convert Google Earth files to ESRI Shapefile</p>
+            <div class="formats">
+                <span class="format-badge">.KML</span>
+                <span class="format-badge">.KMZ</span>
+                <span class="format-badge">&rarr;</span>
+                <span class="format-badge">.SHP</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="upload-zone" id="uploadZone">
+                <span class="upload-icon">📁</span>
+                <h3>Drop your file here</h3>
+                <p>or click to browse</p>
+                <div class="file-name" id="fileName"></div>
+                <input type="file" class="file-input" id="fileInput" accept=".kml,.kmz">
+            </div>
+
+            <button class="btn btn-primary" id="convertBtn" disabled>
+                Convert to Shapefile
+            </button>
+
+            <div class="progress-container" id="progress">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="progress-text">Converting...</div>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <div class="results" id="results">
+                <div id="resultsList"></div>
+                <button class="btn btn-download" id="downloadBtn">
+                    Download Shapefile (.zip)
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Max file size: 50MB &middot; Output: WGS84 &middot; Free to use</p>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const convertBtn = document.getElementById('convertBtn');
+        const progress = document.getElementById('progress');
+        const errorMsg = document.getElementById('errorMsg');
+        const results = document.getElementById('results');
+        const resultsList = document.getElementById('resultsList');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let selectedFile = null;
+        let downloadUrl = null;
+
+        // Upload zone click
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                selectFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function selectFile(file) {
+            const ext = file.name.toLowerCase().split('.').pop();
+            if (!['kml', 'kmz'].includes(ext)) {
+                showError('Please select a .kml or .kmz file');
+                return;
+            }
+            selectedFile = file;
+            fileName.textContent = file.name;
+            uploadZone.classList.add('has-file');
+            convertBtn.disabled = false;
+            hideError();
+            results.classList.remove('active');
+        }
+
+        // Convert
+        convertBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            convertBtn.disabled = true;
+            progress.classList.add('active');
+            results.classList.remove('active');
+            hideError();
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Conversion failed');
+                }
+
+                // Show results
+                resultsList.innerHTML = '';
+                data.results.forEach(r => {
+                    const item = document.createElement('div');
+                    item.className = 'result-item';
+                    item.innerHTML = `
+                        <span class="result-type">${r.type}</span>
+                        <span class="result-count">${r.count} feature${r.count > 1 ? 's' : ''}</span>
+                    `;
+                    resultsList.appendChild(item);
+                });
+
+                downloadUrl = `/download/${data.job_id}/${data.filename}`;
+                results.classList.add('active');
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                progress.classList.remove('active');
+                convertBtn.disabled = false;
+            }
+        });
+
+        // Download
+        downloadBtn.addEventListener('click', () => {
+            if (downloadUrl) {
+                window.location.href = downloadUrl;
+            }
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('active');
+        }
+
+        function hideError() {
+            errorMsg.classList.remove('active');
+        }
+    </script>
+</body>
+</html>

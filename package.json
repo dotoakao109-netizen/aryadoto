@@ -1,0 +1,10 @@
+{
+  "name": "aryadoto",
+  "version": "1.0.0",
+  "description": "KML/KMZ to Shapefile web converter",
+  "scripts": {
+    "start": "python app.py",
+    "dev": "python app.py"
+  },
+  "dependencies": {}
+}

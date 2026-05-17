@@ -1,0 +1,4 @@
+flask>=3.0
+lxml>=5.0
+pyshp>=2.3
+gunicorn>=21.0
